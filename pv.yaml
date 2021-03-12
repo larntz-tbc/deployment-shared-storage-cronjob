@@ -1,0 +1,18 @@
+# This works, but isn't necessary if you use a pvc with 
+# acessModes ReadWriteOnce... the pv will be auto-provisioned.
+#
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: testing-pv-0
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 2Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: vsan-default-storage-policy
+  claimRef:
+    name: storage-testing-pvc-0
+    namespace: st

@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    kubernetes.io/cluster-service: "true"
+  name: vsan-retain-storage-policy
+parameters:
+  svStorageClass: vsan-default-storage-policy
+provisioner: csi.vsphere.vmware.com
+allowVolumeExpansion: True
+reclaimPolicy: Retain
+volumeBindingMode: Immediate

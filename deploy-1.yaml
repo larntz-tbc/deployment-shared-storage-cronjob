@@ -1,0 +1,132 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: st
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: storage-testing-pvc-1
+  namespace: st
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: vsan-default-storage-policy
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-containers-2
+  namespace: st
+spec:
+  selector:
+    matchLabels:
+      app: storage-test-1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: storage-test-1
+        appAffinity: test-primary-pods-1
+    spec:
+      volumes:
+      - name: html
+        persistentVolumeClaim:
+          claimName: storage-testing-pvc-1
+      containers:
+      - name: 1st
+        image: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+      - name: 2nd
+        image: debian
+        volumeMounts:
+        - name: html
+          mountPath: /html
+        command: ["/bin/sh", "-c"]
+        args:
+          - while true; do
+              date >> /html/index.html;
+              sleep 60;
+            done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-containers-3
+  namespace: st
+  labels:
+    app: storage-test-1
+spec:
+  selector:
+    matchLabels:
+      app: storage-test-1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: storage-test-1
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: appAffinity
+                operator: In
+                values:
+                - test-primary-pods-1
+            topologyKey: "kubernetes.io/hostname"
+      volumes:
+      - name: html
+        persistentVolumeClaim:
+          claimName: storage-testing-pvc-1
+      containers:
+      - name: 3rd
+        image: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: hello-1
+  namespace: st
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                  - key: appAffinity
+                    operator: In
+                    values:
+                    - test-primary-pods-1
+                topologyKey: "kubernetes.io/hostname"
+          volumes:
+          - name: html
+            persistentVolumeClaim:
+              claimName: storage-testing-pvc-1
+          containers:
+          - name: hello
+            image: debian
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+            - name: html
+              mountPath: /html  
+            command:
+            - /bin/sh
+            - -c
+            - echo $(date) hello from cronjob >> /html/index.html
+          restartPolicy: OnFailure
